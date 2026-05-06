@@ -13,10 +13,12 @@ Spawn order:
      with config-driven args, waits for the first /odom message, then
      declares chassis/odom + chassis/twist_in on atlas.
 
-state and move (rpc-mode contracts) are TODO — they need their own
-gRPC handlers implementing the chassis/srv/{GetRobotState,
-ExecuteMoveCommand} services. For the rtabmap-only first bring-up
-the chassis isn't actively driven; topics-only surface is sufficient.
+move (rpc-mode contract) is TODO — needs its own gRPC handler
+implementing chassis/srv/ExecuteMoveCommand. For the rtabmap-only
+first bring-up the chassis isn't actively driven; topics-only
+surface is sufficient. `primitive/chassis/state` is intentionally
+NOT implemented — it's the legacy AMCL-bundling contract being
+phased out (localization belongs to service/map/pose, not chassis).
 
 Config (passed via Driver(CMD_INIT, config_json)):
     port_name        default "can_ranger"   (udev-renamed CAN; see /etc/systemd/network)

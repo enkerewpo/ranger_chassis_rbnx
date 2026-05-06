@@ -10,7 +10,7 @@ Robonix package wrapping the **AgileX Ranger Mini v2** chassis. Owns the `primit
 | `robonix/primitive/chassis/odom`    | topic_out | ROS 2     | `/odom` (nav_msgs/Odometry)                 |
 | `robonix/primitive/chassis/twist_in`| topic_in  | ROS 2     | `/cmd_vel` (geometry_msgs/Twist)            |
 
-`primitive/chassis/state` and `primitive/chassis/move` (rpc-mode) need their own gRPC handlers implementing `chassis/srv/{GetRobotState, ExecuteMoveCommand}` — TODO.
+`primitive/chassis/move` (rpc-mode) needs its own gRPC handler implementing `chassis/srv/ExecuteMoveCommand` — TODO. We do NOT implement `primitive/chassis/state`: that legacy contract bundled map-frame pose into a chassis-owned RPC, which is a layering inversion (chassis primitives are device leaves; localization belongs to the localization service). For "where is the robot in the map?" subscribe to `service/map/pose` instead.
 
 ## Driver-init lifecycle
 

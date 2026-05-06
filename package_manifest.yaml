@@ -20,7 +20,6 @@
 #   primitive/chassis/driver    mode=rpc        transport=gRPC
 #   primitive/chassis/odom      mode=topic_out  transport=ROS2  nav_msgs/Odometry
 #   primitive/chassis/twist_in  mode=topic_in   transport=ROS2  geometry_msgs/Twist  (we subscribe to /cmd_vel)
-#   primitive/chassis/state     mode=rpc        transport=gRPC  GetRobotState (TODO)
 #   primitive/chassis/move      mode=rpc        transport=gRPC  ExecuteMoveCommand (TODO)
 #
 # Config (passed via `Driver(CMD_INIT, config_json)`):

@@ -46,8 +46,39 @@ _pkg_root: Path = Path(__file__).resolve().parent.parent
 _ranger_proc: subprocess.Popen | None = None
 
 
+def _setup_can(cfg: dict) -> None:
+    """Bring the chassis CAN interface up before launching the driver — the
+    primitive owns this so the host doesn't need the link pre-configured. The
+    SDK only opens an already-up SocketCAN device, so we down → set bitrate →
+    up the configured `port_name`. Idempotent; needs CAP_NET_ADMIN (passwordless
+    `sudo ip link …`, or run as root). Logs + continues on failure so the
+    underlying 'Failed to connect to CAN port' still surfaces if the host
+    genuinely can't bring it up."""
+    import shutil
+    port = cfg.get("port_name", "can_ranger")
+    bitrate = str(int(cfg.get("can_bitrate", 500000)))
+    sudo = ["sudo", "-n"] if os.geteuid() != 0 and shutil.which("sudo") else []
+    for c in (["ip", "link", "set", port, "down"],
+              ["ip", "link", "set", port, "type", "can", "bitrate", bitrate],
+              ["ip", "link", "set", port, "up"]):
+        r = subprocess.run(sudo + c, capture_output=True, text=True)
+        if r.returncode != 0:
+            log.warning("CAN setup '%s' failed: %s", " ".join(c), (r.stderr or "").strip())
+    log.info("CAN %s configured up @ %s bps", port, bitrate)
+
+
+def _pump_output(stream) -> None:
+    """Forward the ranger driver's merged stdout/stderr into scribe via the
+    package logger — one unified log stream, no side-car ranger.log file."""
+    for raw in iter(stream.readline, b""):
+        line = raw.decode(errors="replace").rstrip()
+        if line:
+            log.info("[ranger_base] %s", line)
+
+
 def _spawn_ranger(cfg: dict) -> None:
     global _ranger_proc
+    _setup_can(cfg)
     args = [
         "ros2", "launch", "ranger_bringup", "ranger_mini_v2.launch.xml",
         f"port_name:={cfg.get('port_name', 'can_ranger')}",
@@ -58,14 +89,12 @@ def _spawn_ranger(cfg: dict) -> None:
         f"odom_topic_name:={cfg.get('odom_topic_name', 'odom')}",
         f"publish_odom_tf:={'true' if cfg.get('publish_odom_tf', False) else 'false'}",
     ]
-    log_path = _pkg_root / "rbnx-build" / "data" / "ranger.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_fh = open(log_path, "ab", buffering=0)
-    log.info("spawning ranger driver → %s", log_path)
+    log.info("spawning ranger driver")
     log.debug("launch args: %s", " ".join(args))
     _ranger_proc = subprocess.Popen(
-        args, stdout=log_fh, stderr=log_fh, start_new_session=True,
+        args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
     )
+    threading.Thread(target=_pump_output, args=(_ranger_proc.stdout,), daemon=True).start()
 
 
 def _kill_ranger() -> None:
